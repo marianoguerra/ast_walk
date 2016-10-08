@@ -1,5 +1,5 @@
 %% code based on erl_id_trans
--module(erl_ast_walk).
+-module(ast_walk).
 
 %% A module to walk and maybe modify ast nodes
 
