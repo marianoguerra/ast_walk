@@ -19,4 +19,4 @@ Mariano Guerra
 License
 -------
 
-See LICENSE file
+BSD, See LICENSE file
