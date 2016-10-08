@@ -8,7 +8,7 @@
 %% N.B. if this module is to be used as a basis for tranforms then
 %% all the error cases must be handled otherwise this module just crashes!
 
--export([walk/3, expr/3, exprs/3]).
+-export([walk/3, expr/3, exprs/3, forms/3, form/3]).
 
 walk(Forms, Fun, State) ->
     forms(Forms, Fun, State).
