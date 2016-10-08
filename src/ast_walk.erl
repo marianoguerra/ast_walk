@@ -46,8 +46,9 @@ form(Node={attribute, _Line, asm, {function, _N, _A, _Code}}, Fun, State) ->
 form(Node={attribute, _Line, _Attr, _Val}, Fun, State) -> %The general attribute.
     Fun(State, Node);
 form({function, Line, Name0, Arity0, Clauses0}, Fun, State) ->
-    {{Name,Arity,Clauses}, State1} = function(Name0, Arity0, Clauses0, Fun, State),
-    Fun(State1, {function,Line,Name,Arity,Clauses});
+    {_, State1} = Fun(State, {pre, {function,Line,Name0,Arity0,Clauses0}}),
+    {{Name,Arity,Clauses}, State2} = function(Name0, Arity0, Clauses0, Fun, State1),
+    Fun(State2, {function,Line,Name,Arity,Clauses});
 % Mnemosyne, ignore...
 form(Node={rule, _Line, _Name, _Arity, _Body}, _Fun, State) ->
     {Node, State}; % Dont dig into this
