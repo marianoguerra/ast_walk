@@ -1,0 +1,15 @@
+{application, ast_walk,
+ [{description, "An Erlang library to walk the Erlang AST with the ability to mutate it and keep state during transversal"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.
