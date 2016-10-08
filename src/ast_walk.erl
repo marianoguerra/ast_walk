@@ -18,7 +18,10 @@ walk(Forms, Fun, State) ->
 forms([F0|Fs0], Fun, State) ->
     {F1, State1} = form(F0, Fun, State),
     {Fs1, State2} = forms(Fs0, Fun, State1),
-    {[F1|Fs1], State2};
+    case is_list(F1) of
+        true -> {F1 ++ Fs1, State2};
+        false -> {[F1|Fs1], State2}
+    end;
 forms([], _Fun, State) -> {[], State}.
 
 %% -type form(Form) -> Form.
