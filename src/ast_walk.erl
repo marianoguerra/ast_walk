@@ -81,6 +81,18 @@ record_defs([Node={record_field, _Line, {atom, _La, _A}}|Is], Fun, State) ->
     {R, State1} = Fun(State, Node),
     {T, State2} = record_defs(Is, Fun, State1),
     {[R|T], State2};
+record_defs([Node={typed_record_field,
+                   {record_field, _Line, {atom, _La, _A}},
+                   {user_type, _Line, _TypeName, _TypeArgs}}|Is], Fun, State) ->
+    {R, State1} = Fun(State, Node),
+    {T, State2} = record_defs(Is, Fun, State1),
+    {[R|T], State2};
+record_defs([Node={typed_record_field,
+                   {record_field, _Line, {atom, _La, _A}},
+                   {type, _Line, _TypeName, _TypeArgs}}|Is], Fun, State) ->
+    {R, State1} = Fun(State, Node),
+    {T, State2} = record_defs(Is, Fun, State1),
+    {[R|T], State2};
 record_defs([], _Fun, State) -> {[], State}.
 
 %% -type function(atom(), integer(), [Clause]) -> {atom(),integer(),[Clause]}.
