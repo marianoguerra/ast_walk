@@ -9,7 +9,7 @@
   {env,[]},
   {modules, []},
 
-  {maintainers, []},
-  {licenses, []},
-  {links, []}
+  {maintainers, ["Mariano Guerra"]},
+  {licenses, ["BSD"]},
+  {links, [{"Github", "https://github.com/marianoguerra/ast_walk"}]}
  ]}.
