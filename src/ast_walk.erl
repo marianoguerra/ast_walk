@@ -81,18 +81,25 @@ record_defs([Node={record_field, _Line, {atom, _La, _A}}|Is], Fun, State) ->
     {R, State1} = Fun(State, Node),
     {T, State2} = record_defs(Is, Fun, State1),
     {[R|T], State2};
+
+% added from 19.2
 record_defs([Node={typed_record_field,
-                   {record_field, _Line, {atom, _La, _A}},
-                   {user_type, _Line, _TypeName, _TypeArgs}}|Is], Fun, State) ->
-    {R, State1} = Fun(State, Node),
-    {T, State2} = record_defs(Is, Fun, State1),
-    {[R|T], State2};
+                   {record_field, _Line, {atom, _La, _A}, _Val0}, _Type0}|Is], Fun, State) ->
+    % TODO: support expr and type
+    %{Val1, State1} = expr(Val0, Fun, State),
+    %{Type1, State2} = type(Type0, Fun, State1),
+    {R, State3} = Fun(State, Node),
+    {T, State4} = record_defs(Is, Fun, State3),
+    {[R|T], State4};
+
 record_defs([Node={typed_record_field,
-                   {record_field, _Line, {atom, _La, _A}},
-                   {type, _Line, _TypeName, _TypeArgs}}|Is], Fun, State) ->
-    {R, State1} = Fun(State, Node),
-    {T, State2} = record_defs(Is, Fun, State1),
-    {[R|T], State2};
+                   {record_field, _Line, {atom, _La, _A}}, _Type0}|Is], Fun, State) ->
+    % TODO: support expr and type
+    %{Type1, State2} = type(Type0, Fun, State),
+    {R, State3} = Fun(State, Node),
+    {T, State4} = record_defs(Is, Fun, State3),
+    {[R|T], State4};
+
 record_defs([], _Fun, State) -> {[], State}.
 
 %% -type function(atom(), integer(), [Clause]) -> {atom(),integer(),[Clause]}.
@@ -182,7 +189,15 @@ pattern({bin,Line,Fs}, Fun, State) ->
 pattern({op,Line,Op,A}, Fun, State) ->
     Fun(State, {op,Line,Op,A});
 pattern({op,Line,Op,L,R}, Fun, State) ->
-    Fun(State, {op,Line,Op,L,R}).
+    Fun(State, {op,Line,Op,L,R});
+
+
+% otp/lib/syntax_tools/test/merl_SUITE.erl:77 in 19.2 has this call
+% {call,77, {remote,77,{atom,77,merl},{atom,77,quote}},
+%   [{integer,77,77}, {string,77,"{foo, _@Bar, '@Baz'}"}]}
+
+pattern(Other, Fun, State) ->
+    Fun(State, Other).
 
 pattern_grp([{bin_element,L1,E1,S1,T1} | Fs], Fun, State) ->
     {S2, State1} = case S1 of
@@ -310,11 +325,15 @@ gexpr({record_field,Line,Rec0,Name,Field0}, Fun, State) ->
 gexpr({record,Line,Name,Inits0}, Fun, State) ->
     {Inits1, State1} = grecord_inits(Inits0, Fun, State),
     Fun(State1, {record,Line,Name,Inits1});
-gexpr({call,Line,{atom,La,F},As0}, Fun, State) ->
+gexpr(Node={call,Line,{atom,La,F},As0}, Fun, State) ->
     case erl_internal:guard_bif(F, length(As0)) of
         true ->
             {As1, State1} = gexpr_list(As0, Fun, State),
-            Fun(State1, {call,Line,{atom,La,F},As1})
+            Fun(State1, {call,Line,{atom,La,F},As1});
+        false ->
+            %% NOTE: otp/lib/compiler/test/guard_SUITE.erl has a code that
+            %% makes this return false
+            {Node, State}
     end;
 % Guard bif's can be remote, but only in the module erlang...
 gexpr({call,Line,{remote,La,{atom,Lb,erlang},{atom,Lc,F}},As0}, Fun, State) ->
