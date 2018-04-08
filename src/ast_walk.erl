@@ -9,6 +9,14 @@
 %% all the error cases must be handled otherwise this module just crashes!
 
 -export([walk/3, expr/3, exprs/3, forms/3, form/3]).
+-export([id_walker/2, print_walker/2]).
+
+id_walker(State, Node) ->
+	{Node, State}.
+
+print_walker(State, Node) ->
+	io:format("~p~n~n", [Node]),
+	{Node, State}.
 
 walk(Forms, Fun, State) ->
     forms(Forms, Fun, State).
@@ -82,23 +90,24 @@ record_defs([Node={record_field, _Line, {atom, _La, _A}}|Is], Fun, State) ->
     {T, State2} = record_defs(Is, Fun, State1),
     {[R|T], State2};
 
-% added from 19.2
-record_defs([Node={typed_record_field,
-                   {record_field, _Line, {atom, _La, _A}, _Val0}, _Type0}|Is], Fun, State) ->
-    % TODO: support expr and type
-    %{Val1, State1} = expr(Val0, Fun, State),
-    %{Type1, State2} = type(Type0, Fun, State1),
-    {R, State3} = Fun(State, Node),
+record_defs([{typed_record_field,
+              {record_field, Line, {atom, La, A}, Val0}, Type}|Is],
+           Fun, State) ->
+    {Val1, State1} = expr(Val0, Fun, State),
+    {Type1, State2} = type(Type, Fun, State1),
+    Node1 = {typed_record_field, {record_field, Line, {atom, La, A}, Val1}, Type1},
+    {Node2, State3} = Fun(State2, Node1),
     {T, State4} = record_defs(Is, Fun, State3),
-    {[R|T], State4};
+    {[Node2|T], State4};
 
-record_defs([Node={typed_record_field,
-                   {record_field, _Line, {atom, _La, _A}}, _Type0}|Is], Fun, State) ->
-    % TODO: support expr and type
-    %{Type1, State2} = type(Type0, Fun, State),
-    {R, State3} = Fun(State, Node),
-    {T, State4} = record_defs(Is, Fun, State3),
-    {[R|T], State4};
+record_defs([{typed_record_field,
+				   {record_field, Line, {atom, La, A}}, Type}|Is],
+           Fun, State) ->
+    {Type1, State1} = type(Type, Fun, State),
+    Node1 = {typed_record_field, {record_field, Line, {atom, La, A}}, Type1},
+    {Node2, State2} = Fun(State1, Node1),
+    {T, State3} = record_defs(Is, Fun, State2),
+    {[Node2|T], State3};
 
 record_defs([], _Fun, State) -> {[], State}.
 
@@ -610,3 +619,88 @@ fun_clauses([C0|Cs], Fun, State) ->
     {T, State2} = fun_clauses(Cs, Fun, State1),
     {[C1|T], State2};
 fun_clauses([], _Fun, State) -> {[], State}.
+
+type({ann_type,Line,[{var,Lv,V},T]}, Fun, State) ->
+    {T1, State1} = type(T, Fun, State),
+    Fun(State1, {ann_type,Line,[{var,Lv,V},T1]});
+type({atom,Line,A}, Fun, State) ->
+    Fun(State, {atom,Line,A});
+type({integer,Line,I}, Fun, State) ->
+    Fun(State, {integer,Line,I});
+type({op,Line,Op,T}, Fun, State) ->
+    {T1, State1} = type(T, Fun, State),
+    Fun(State1, {op,Line,Op,T1});
+type({op,Line,Op,L,R}, Fun, State) ->
+    {L1, State1} = type(L, Fun, State),
+    {R1, State2} = type(R, Fun, State1),
+    Fun(State2, {op,Line,Op,L1,R1});
+type({type,Line,binary,[M,N]}, Fun, State) ->
+    {M1, State1} = type(M, Fun, State),
+    {N1, State2} = type(N, Fun, State1),
+    Fun(State2, {type,Line,binary,[M1,N1]});
+type({type,Line,'fun',[]}, Fun, State) ->
+    Fun(State, {type,Line,'fun',[]});
+type({type,Line,'fun',[{type,Lt,any},B]}, Fun, State) ->
+    {B1, State1} = type(B, Fun, State),
+    Fun(State1, {type,Line,'fun',[{type,Lt,any},B1]});
+type({type,Line,range,[L,H]}, Fun, State) ->
+    {L1, State1} = type(L, Fun, State),
+    {H1, State2} = type(H, Fun, State1),
+    Fun(State2, {type,Line,range,[L1,H1]});
+type({type,Line,map,any}, Fun, State) ->
+    Fun(State, {type,Line,map,any});
+type({type,Line,map,Ps}, Fun, State) ->
+    {Ps1, State1} = map_pair_types(Ps, Fun, State),
+    Fun(State1, {type,Line,map,Ps1});
+type({type,Line,record,[{atom,La,N}|Fs]}, Fun, State) ->
+    {Fs1, State1} = field_types(Fs, Fun, State),
+    Fun(State1, {type,Line,record,[{atom,La,N}|Fs1]});
+type({remote_type,Line,[{atom,Lm,M},{atom,Ln,N},As]}, Fun, State) ->
+    {As1, State1} = type_list(As, Fun, State),
+    Fun(State1, {remote_type,Line,[{atom,Lm,M},{atom,Ln,N},As1]});
+type({type,Line,tuple,any}, Fun, State) ->
+    Fun(State, {type,Line,tuple,any});
+type({type,Line,tuple,Ts}, Fun, State) ->
+    {Ts1, State1} = type_list(Ts, Fun, State),
+    Fun(State1, {type,Line,tuple,Ts1});
+type({type,Line,union,Ts}, Fun, State) ->
+    {Ts1, State1} = type_list(Ts, Fun, State),
+    Fun(State1, {type,Line,union,Ts1});
+type({var,Line,V}, Fun, State) ->
+    Fun(State, {var,Line,V});
+type({user_type,Line,N,As}, Fun, State) ->
+    {As1, State1} = type_list(As, Fun, State),
+    Fun(State1, {user_type,Line,N,As1});
+type({type,Line,N,As}, Fun, State) ->
+    {As1, State1} = type_list(As, Fun, State),
+    Fun(State1, {type,Line,N,As1}).
+
+map_pair_types([{type,Line,map_field_assoc,[K,V]}|Ps], Fun, State) ->
+    {K1, State1} = type(K, Fun, State),
+    {V1, State2} = type(V, Fun, State1),
+    H = {type,Line,map_field_assoc,[K1,V1]},
+    {T, State3} = map_pair_types(Ps, Fun, State2),
+    {[H|T], State3};
+
+map_pair_types([{type,Line,map_field_exact,[K,V]}|Ps], Fun, State) ->
+    {K1, State1} = type(K, Fun, State),
+    {V1, State2} = type(V, Fun, State1),
+    H = {type,Line,map_field_exact,[K1,V1]},
+    {T, State3} = map_pair_types(Ps, Fun, State2),
+    {[H|T], State3};
+
+map_pair_types([], _Fun, State) -> {[], State}.
+
+field_types([{type,Line,field_type,[{atom,La,A},T]}|Fs], Fun, State) ->
+    {T1, State1} = type(T, Fun, State),
+    H = {type,Line,field_type,[{atom,La,A},T1]},
+    {Tail, State2} = field_types(Fs, Fun, State1),
+    {[H|Tail], State2};
+
+field_types([], _Fun, State) -> {[], State}.
+
+type_list([T|Ts], Fun, State) ->
+    {T1, State1} = type(T, Fun, State),
+    {Ts1, State2} = type_list(Ts, Fun, State1),
+    {[T1|Ts1], State2};
+type_list([], _Fun, State) -> {[], State}.
